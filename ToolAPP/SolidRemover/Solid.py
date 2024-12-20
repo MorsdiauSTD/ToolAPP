@@ -6,6 +6,21 @@ import numpy as np
 def remove_bg():
     image_path = filedialog.askopenfilename(title="Select an image to remove background")
     if image_path:
-        img = cv2.imread(image_path)
-        gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur_img = cv2.GaussianBlur(gray_img, (7, 7), 0)
+        lower_color = np.array([35, 100, 100])
+        upper_color = np.array([85, 255, 255])
+
+        foreground = remove_bg(image_path, lower_color, upper_color)
+
+        cv2.imwrite("foreground_image.png", foreground)
+        result_label.config(text="Background removed and saved as 'foreground_image.png'.")
+
+root = tk.Tk()
+root.title("BG Remover")
+
+remove_button = tk.Button(root, text="Remove Background", command=remove_bg)
+remove_button.pack()
+
+result_label = tk.Label(root, text="")
+result_label.pack()
+
+root.mainloop()
