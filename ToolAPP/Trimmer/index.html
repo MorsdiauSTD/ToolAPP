@@ -1,0 +1,138 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-roboto">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold mb-4">Video Editor</h1>
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="video-upload">Upload Video</label>
+                <input type="file" id="video-upload" accept="video/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="audio-upload">Upload Audio</label>
+                <input type="file" id="audio-upload" accept="audio/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="ratio">Set Video Ratio</label>
+                <select id="ratio" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
+                    <option value="16:9">16:9</option>
+                    <option value="4:3">4:3</option>
+                    <option value="1:1">1:1</option>
+                    <option value="9:16">9:16</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="trim-start">Trim Start (seconds)</label>
+                <input type="number" id="trim-start" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="trim-end">Trim End (seconds)</label>
+                <input type="number" id="trim-end" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2" for="watermark">Watermark Text</label>
+                <input type="text" id="watermark" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm">
+            </div>
+            <div class="flex justify-end">
+                <button id="process-video" class="bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Process Video</button>
+            </div>
+        </div>
+        <div id="loading-section" class="mt-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Processing Video...</h2>
+            <div class="flex justify-center">
+                <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+            </div>
+        </div>
+        <div id="video-preview" class="mt-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Video Preview</h2>
+            <video id="video-element" controls class="w-full rounded-lg shadow-lg"></video>
+            <div class="flex justify-end mt-4">
+                <a id="download-link" href="#" download="output.mp4" class="bg-green-500 text-white font-bold py-2 px-4 rounded hover:bg-green-700">Download Video</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        document.getElementById('process-video').addEventListener('click', async () => {
+            try {
+                const videoFile = document.getElementById('video-upload').files[0];
+                const audioFile = document.getElementById('audio-upload').files[0];
+                const ratio = document.getElementById('ratio').value;
+                const trimStart = document.getElementById('trim-start').value;
+                const trimEnd = document.getElementById('trim-end').value;
+                const watermarkText = document.getElementById('watermark').value;
+
+                if (!videoFile) {
+                    alert('Please upload a video file.');
+                    return;
+                }
+
+                if (trimStart && trimEnd && parseFloat(trimStart) >= parseFloat(trimEnd)) {
+                    alert('Trim end time must be greater than trim start time.');
+                    return;
+                }
+
+                document.getElementById('loading-section').classList.remove('hidden');
+                document.getElementById('video-preview').classList.add('hidden');
+
+                if (!ffmpeg.isLoaded()) {
+                    await ffmpeg.load();
+                }
+
+                ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+
+                let command = `-i input.mp4 -vf "scale=iw*${ratio.split(':')[0]}/ih*${ratio.split(':')[1]},drawtext=text='${watermarkText}':x=W-tw-10:y=10:fontsize=24:fontcolor=white@0.15" -c:a copy output.mp4`;
+
+                if (trimStart && trimEnd) {
+                    command = `-i input.mp4 -vf "scale=iw*${ratio.split(':')[0]}/ih*${ratio.split(':')[1]},drawtext=text='${watermarkText}':x=W-tw-10:y=10:fontsize=24:fontcolor=white@0.15" -ss ${trimStart} -to ${trimEnd} -c:a copy output.mp4`;
+                }
+
+                if (audioFile) {
+                    ffmpeg.FS('writeFile', 'input.mp3', await fetchFile(audioFile));
+                    command = `-i input.mp4 -i input.mp3 -vf "scale=iw*${ratio.split(':')[0]}/ih*${ratio.split(':')[1]},drawtext=text='${watermarkText}':x=W-tw-10:y=10:fontsize=24:fontcolor=white@0.15" ${trimStart && trimEnd ? `-ss ${trimStart} -to ${trimEnd}` : ''} -map 0:v -map 1:a output.mp4`;
+                }
+
+                await ffmpeg.run(...command.split(' '));
+
+                const data = ffmpeg.FS('readFile', 'output.mp4');
+                const video = document.getElementById('video-element');
+                video.src = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+
+                const downloadLink = document.getElementById('download-link');
+                downloadLink.href = video.src;
+
+                document.getElementById('loading-section').classList.add('hidden');
+                document.getElementById('video-preview').classList.remove('hidden');
+
+                // Clean up
+                ffmpeg.FS('unlink', 'input.mp4');
+                ffmpeg.FS('unlink', 'output.mp4');
+                if (audioFile) ffmpeg.FS('unlink', 'input.mp3');
+            } catch (error) {
+                console.error('An error occurred:', error);
+                alert('An error occurred while processing the video. Please try again.');
+                document.getElementById('loading-section').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+</body>
+</html>
